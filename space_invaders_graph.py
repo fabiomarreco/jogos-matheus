@@ -1,38 +1,40 @@
-import pygame
-import sys
-
-# Definindo os caminhos para as imagens
 caminho_para_imagem_fundo = 'imagens/fundo.jpg'
 caminho_para_imagem_barra = 'imagens/barra.png'
 caminho_para_imagem_tiro = 'imagens/tiro.png'
 caminho_para_imagem_nave = 'imagens/nave.png'
-caminho_para_imagem_explosao = 'imagens/explosao.png'  # Adicione a imagem de explosão aqui
+caminho_para_imagem_explosao = 'imagens/explosao.png'
+
+import pygame
+import sys
+import random
 
 def jogar():
     largura, altura = 1024, 768  # Tamanho da tela em pixels
     tamanho_barra = 80, 80  # Tamanho da barra em pixels
     tamanho_nave = 80, 80  # Tamanho da nave em pixels
     tamanho_tiro = 30, 60  # Tamanho do tiro em pixels
-    tamanho_explosao = 100, 100  # Tamanho da explosão em pixels
+    tamanho_explosao = 80, 80  # Tamanho da explosão em pixels
+    aleatoriedade_mudanca_direcao = 0.03  # Chance de mudança de direção da nave
     posicao_barra = [largura // 2 - tamanho_barra[0] // 2, altura - tamanho_barra[1]]
     posicao_nave = [largura // 2, 0]
     posicao_tiro = [0, 0]
+    posicao_explosao = [0, 0]
     tiro_ativo = False
     explosao_ativa = False
-    posicao_explosao = [0, 0]
+    tempo_explosao = 0
+    tempo_maximo_explosao = 1 * 60  # 2 segundos em frames
     velocidade_nave = 4
+    velocidade_queda_nave = 1
     velocidade_tiro = 10
     velocidade_barra = 11
-    velocidade_queda_nave = 5  # A nave vai descer 1 pixel por frame
-    maximo_de_naves = 10  # Número máximo de naves para ganhar/perder o jogo
     naves_destruidas = 0
     naves_escaparam = 0
+    maximo_de_naves = 10
 
     pygame.init()
     tela = pygame.display.set_mode((largura, altura))
     clock = pygame.time.Clock()
-
-    fonte = pygame.font.Font(None, 36)  # Definir o tipo de fonte
+    fonte = pygame.font.Font(None, 36)
 
     # Carregar imagens
     fundo = pygame.image.load(caminho_para_imagem_fundo)
@@ -51,7 +53,7 @@ def jogar():
             if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-
+        
         tecla = pygame.key.get_pressed()
         if tecla[pygame.K_a] and posicao_barra[0] > 0:
             posicao_barra[0] -= velocidade_barra
@@ -66,32 +68,34 @@ def jogar():
             if posicao_tiro[1] <= 0:
                 tiro_ativo = False
             elif pygame.Rect(posicao_tiro, tamanho_tiro).colliderect(pygame.Rect(posicao_nave, tamanho_nave)):
-                explosao_ativa = True
-                posicao_explosao = posicao_nave.copy()  # Coloca a explosão na posição da nave
-                tiro_ativo = False  # Destrói o tiro
                 naves_destruidas += 1
-                posicao_nave = [largura // 2, 0]  # Reseta a posição da nave
+                tiro_ativo = False
+                explosao_ativa = True
+                posicao_explosao = posicao_nave.copy()
+                tempo_explosao = tempo_maximo_explosao
+                posicao_nave = [largura // 2, 0]
+                if naves_destruidas == maximo_de_naves:
+                    mensagem = fonte.render("Parabéns! Você destruiu todas as naves inimigas!", True, (255, 255, 255))
+                    tela.blit(mensagem, (largura//2 - mensagem.get_width()//2, altura//2 - mensagem.get_height()//2))
+                    pygame.display.flip()
+                    pygame.time.wait(3000)
+                    return
 
         posicao_nave[0] += velocidade_nave
-        posicao_nave[1] += velocidade_queda_nave  # Faz a nave descer
+        posicao_nave[1] += velocidade_queda_nave
+        if random.random() < aleatoriedade_mudanca_direcao:
+            velocidade_nave = -velocidade_nave
         if posicao_nave[0] <= 0 or posicao_nave[0] >= largura - tamanho_nave[0]:
             velocidade_nave = -velocidade_nave
         if posicao_nave[1] >= altura - tamanho_nave[1]:
             naves_escaparam += 1
-            posicao_nave = [largura // 2, 0]  # Reseta a posição da nave
-
-        if naves_destruidas == maximo_de_naves:
-            texto = fonte.render("Parabéns! Você ganhou o jogo!", True, (0, 255, 0))
-            tela.blit(texto, (largura//2 - texto.get_width()//2, altura//2 - texto.get_height()//2))
-            pygame.display.flip()
-            pygame.time.wait(2000)
-            return
-        if naves_escaparam == maximo_de_naves:
-            texto = fonte.render("Você perdeu o jogo!", True, (255, 0, 0))
-            tela.blit(texto, (largura//2 - texto.get_width()//2, altura//2 - texto.get_height()//2))
-            pygame.display.flip()
-            pygame.time.wait(2000)
-            return
+            posicao_nave = [largura // 2, 0]
+            if naves_escaparam == maximo_de_naves:
+                mensagem = fonte.render("Você perdeu! Todas as naves inimigas escaparam.", True, (255, 255, 255))
+                tela.blit(mensagem, (largura//2 - mensagem.get_width()//2, altura//2 - mensagem.get_height()//2))
+                pygame.display.flip()
+                pygame.time.wait(3000)
+                return
 
         tela.blit(fundo, (0, 0))
         tela.blit(imagem_barra, tuple(posicao_barra))
@@ -100,11 +104,12 @@ def jogar():
             tela.blit(imagem_tiro, tuple(posicao_tiro))
         if explosao_ativa:
             tela.blit(imagem_explosao, tuple(posicao_explosao))
-            explosao_ativa = False  # A explosão deve aparecer apenas em um frame
+            tempo_explosao -= 1
+            if tempo_explosao <= 0:
+                explosao_ativa = False
 
-        # Exibir contagem de naves destruídas e naves que escaparam
-        texto = fonte.render(f"{naves_destruidas} x {naves_escaparam}", True, (50, 100, 0))
-        tela.blit(texto, (largura - 100, 20))  # Posição do contador na tela
+        placar = fonte.render(f"{naves_destruidas} x {naves_escaparam}", True, (50, 100, 0))
+        tela.blit(placar, (largura - placar.get_width() - 10, 10))
 
         pygame.display.flip()
         clock.tick(60)  # Limita o jogo a 60 frames por segundo
